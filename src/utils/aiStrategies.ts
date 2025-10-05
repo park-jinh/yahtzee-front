@@ -31,8 +31,8 @@ class AIUtils {
     };
   }
 
-  // 기대값 계산 헬퍼
-  static calculateExpectedValue(category: ScoreCategory, currentScore: number, availableCategories: ScoreCategory[]): number {
+  // 기대값 계산 헬퍼 (미사용 인자 제거)
+  static calculateExpectedValue(category: ScoreCategory, currentScore: number): number {
     // 카테고리별 평균 기대값 (통계적 데이터 기반)
     const avgExpectedScore: Record<ScoreCategory, number> = {
       aces: 1.9,
@@ -90,7 +90,7 @@ export class BeginnerAI {
     let bestCategory = availableCategories[0];
     let bestValue = -1;
 
-    // 카테고리 가치 가중치
+    // 카테고리 가치 가중치 (모든 키 포함)
     const categoryWeight: Record<ScoreCategory, number> = {
       yahtzee: 1.0, largeStraight: 0.9, fullHouse: 0.85, smallStraight: 0.8,
       fourOfAKind: 0.75, sixes: 0.65, fives: 0.6, threeOfAKind: 0.55,
@@ -206,15 +206,15 @@ export class IntermediateAI {
         }
       }
 
-      // 카테고리 희소성 가중치
-      const rarityBonus: Record<ScoreCategory, number> = {
+      // 카테고리 희소성 가중치 (부분 맵 사용)
+      const rarityBonus: Partial<Record<ScoreCategory, number>> = {
         yahtzee: 25, largeStraight: 20, fullHouse: 15, smallStraight: 12,
         fourOfAKind: 10, threeOfAKind: 5, chance: -5
       };
-      value += rarityBonus[category] || 0;
+      value += rarityBonus[category] ?? 0;
 
       // 효율성 비율 (실제 점수 / 기대 점수)
-      const efficiency = AIUtils.calculateExpectedValue(category, result.score, availableCategories);
+      const efficiency = AIUtils.calculateExpectedValue(category, result.score);
       value *= (0.5 + efficiency * 0.5); // 효율성 반영
 
       if (value > bestValue) {
@@ -233,6 +233,10 @@ export class ExpertAI {
     const counts = getDiceCounts(dice);
     const straight = AIUtils.detectStraightPattern(dice);
     const fullHouse = AIUtils.detectFullHousePotential(dice);
+
+    if(!straight&&!fullHouse){
+      console.log('이거 임시 변수임');
+    }
 
     // 초반 (1-5라운드): 고득점 조합 적극 추구
     if (round <= 5) {
@@ -283,7 +287,8 @@ export class ExpertAI {
       if (upperCategories.includes(category)) {
         if (bonusNeeded > 0 && upperRemaining.length > 0) {
           const avgNeeded = bonusNeeded / upperRemaining.length;
-          const bonusProb = Math.min(1, Math.max(0, 1 - (bonusNeeded - result.score) / (upperRemaining.length * 5)));
+          // 공통 보너스 확률 헬퍼 활용(미사용 함수 제거 목적 + 일관성)
+          const bonusProb = this.calculateBonusProbability(upperSum, availableCategories);
 
           // 초반: 보너스 가능성 높이면 적극 추구
           if (round <= 6 && result.score >= avgNeeded * 0.7) {
@@ -305,8 +310,8 @@ export class ExpertAI {
         }
       }
 
-      // 2. 희소성 프리미엄 (라운드 고려)
-      const rarityValue: Record<ScoreCategory, number> = {
+      // 2. 희소성 프리미엄 (라운드 고려, 부분 맵 사용)
+      const rarityValue: Partial<Record<ScoreCategory, number>> = {
         yahtzee: 30,
         largeStraight: 25,
         fullHouse: 18,
@@ -318,10 +323,10 @@ export class ExpertAI {
 
       // 후반부에 희소 카테고리 가치 상승
       const rarityMultiplier = round >= 10 ? 1.5 : 1.0;
-      value += (rarityValue[category] || 0) * rarityMultiplier;
+      value += (rarityValue[category] ?? 0) * rarityMultiplier;
 
       // 3. 기회 비용 (효율성)
-      const efficiency = AIUtils.calculateExpectedValue(category, result.score, availableCategories);
+      const efficiency = AIUtils.calculateExpectedValue(category, result.score);
 
       // 초반: 효율 70% 이상이면 선택 고려
       if (round <= 5 && efficiency < 0.7) {
