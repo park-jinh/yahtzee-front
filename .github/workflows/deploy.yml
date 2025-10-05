@@ -30,8 +30,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build
+      - name: Build (custom domain base = '/')
         run: npm run build
+        env:
+          CUSTOM_DOMAIN: '1'   # ✅ vite.config.ts에서 base:'/'로 빌드되게 하는 스위치
+
+      # (선택) SPA 새로고침 404 방지: dist/404.html = dist/index.html
+      - name: Add SPA 404 fallback
+        run: cp dist/index.html dist/404.html
+
+      # (선택) CNAME이 public에 없다면 dist에 주입
+      - name: Ensure CNAME in dist
+        run: echo "dice.pjhive.com" > dist/CNAME
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
